@@ -106,6 +106,16 @@ void Bubble::setEntity(NotificationEntity *entity)
 
     m_outTimer->stop();
 
+    if(entity->timeout()=="-1"){
+        m_outTimer->setInterval(5000);
+    }
+    else if(entity->timeout()=="0"){
+        m_outTimer->setInterval(60 * 1000);
+    }
+    else{
+        m_outTimer->setInterval(entity->timeout().toUInt());
+    }
+
     updateContent();
 
     show();
