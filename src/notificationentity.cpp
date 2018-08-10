@@ -22,8 +22,9 @@
 #include "notificationentity.h"
 
 #include <QDateTime>
+#include <QDebug>
 
-NotificationEntity::NotificationEntity(const QString &appName, const QString &id,
+NotificationEntity::NotificationEntity(const QString &appName, uint id,
                                        const QString &appIcon, const QString &summary,
                                        const QString &body, const QStringList &actions,
                                        const QVariantMap hints, const QString &ctime,
@@ -52,11 +53,17 @@ NotificationEntity::NotificationEntity(const NotificationEntity &notify) :
 
 }
 
-NotificationEntity &NotificationEntity::operator=(const NotificationEntity &notify)
-{
-    NotificationEntity ent(notify);
-    return ent;
+NotificationEntity::~NotificationEntity(){
+#ifdef QT_DEBUG
+    qDebug()<<"a notificationentity is deleted,id is " <<this->m_id;
+#endif
 }
+
+//NotificationEntity &NotificationEntity::operator=(const NotificationEntity &notify)
+//{
+//    NotificationEntity ent(notify);
+//    return ent;
+//}
 
 QString NotificationEntity::appName() const
 {
@@ -68,12 +75,12 @@ void NotificationEntity::setAppName(const QString &appName)
     m_appName = appName;
 }
 
-QString NotificationEntity::id() const
+uint NotificationEntity::id() const
 {
     return m_id;
 }
 
-void NotificationEntity::setId(const QString &id)
+void NotificationEntity::setId(uint id)
 {
     m_id = id;
 }

@@ -12,7 +12,9 @@ HEADERS += \
     $$PWD/persistence.h \
     $$PWD/appbody.h \
     $$PWD/icondata.h \
-    $$PWD/appbodylabel.h
+    $$PWD/appbodylabel.h \ 
+    $$PWD/util.h \
+    $$PWD/bubblescrollarea.h
 
 SOURCES += \
     $$PWD/bubble.cpp \
@@ -28,4 +30,6 @@ SOURCES += \
     $$PWD/persistence.cpp \
     $$PWD/appbody.cpp \
     $$PWD/icondata.cpp \
-    $$PWD/appbodylabel.cpp
+    $$PWD/appbodylabel.cpp \
+    $$PWD/bubblescrollarea.cpp \
+    $$PWD/util.cpp

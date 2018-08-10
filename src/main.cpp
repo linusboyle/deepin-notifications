@@ -38,6 +38,9 @@ int main(int argc, char *argv[])
     app.setApplicationName(APP_NAME);
 
     if (app.setSingleInstance(APP_NAME, DApplication::UserScope)) {
+        //FIXME
+        //deepin-notification still start when other notification daemon is
+        //running
         DLogManager::registerConsoleAppender();
         DLogManager::registerFileAppender();
 

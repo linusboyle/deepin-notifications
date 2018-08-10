@@ -98,7 +98,7 @@ void Persistence::addOne(NotificationEntity *entity)
         return;
     } else {
         m_query.next();
-        entity->setId(m_query.value(0).toString());
+        entity->setId(m_query.value(0).toUInt());
 #ifdef QT_DEBUG
         qDebug() << "get entity's id done:" << entity->id();
 #endif

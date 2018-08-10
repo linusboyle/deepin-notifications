@@ -22,7 +22,6 @@
 
 #include "bubble.h"
 
-#include <QLabel>
 #include <QDebug>
 #include <QTimer>
 #include <QPropertyAnimation>
@@ -44,6 +43,9 @@
 
 DWIDGET_USE_NAMESPACE
 
+static const int Padding = 20;
+
+
 static const QString BubbleStyleSheet = "QFrame#Background { "
                                         "background-color: rgba(0, 0, 0, 60);"
                                         "border-radius: 8px;"
@@ -52,12 +54,9 @@ static const QString BubbleStyleSheet = "QFrame#Background { "
                                         "font-size: 11px;"
                                         "color: black;"
                                         "}";
-static const int Padding = 20;
-static const int BubbleWidth = 300;
-static const int BubbleHeight = 70;
 
-Bubble::Bubble(NotificationEntity *entity)
-    : DBlurEffectWidget(nullptr)
+Bubble::Bubble(NotificationEntity *entity,QWidget* parent)
+    : DBlurEffectWidget(parent)
     , m_entity(entity)
     , m_icon(new AppIcon(this))
     , m_body(new AppBody(this))
@@ -65,9 +64,13 @@ Bubble::Bubble(NotificationEntity *entity)
     , m_quitTimer(new QTimer(this))
 
 {
+    setObjectName("Bubble");
+
+    //default autoquit timer
     m_quitTimer->setInterval(60 * 1000);
     m_quitTimer->setSingleShot(true);
 
+    //general UI setting
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
 
@@ -83,69 +86,74 @@ Bubble::Bubble(NotificationEntity *entity)
     setBlendMode(DBlurEffectWidget::BehindWindowBlend);
     setMaskColor(DBlurEffectWidget::LightColor);
 
+    //init default startup ui component
     initUI();
-    initAnimations();
+    //initAnimations();
     initTimers();
 
+    //fill in content
     setEntity(entity);
 
     connect(m_wmHelper, &DWindowManagerHelper::hasCompositeChanged, this, &Bubble::compositeChanged);
     connect(m_quitTimer, &QTimer::timeout, this, &Bubble::onDelayQuit);
-}
 
-NotificationEntity *Bubble::entity() const
-{
-    return m_entity;
 }
 
 void Bubble::setEntity(NotificationEntity *entity)
 {
-    if (!entity) return;
+    if (!entity) 
+        return;
 
-    m_entity = entity;
+    //entity->setParent(this);
 
     m_outTimer->stop();
 
-    if(entity->timeout()=="-1"){
+    //update timer
+    bool expire = true;
+    if(entity->timeout().toInt() < 0) { // implementation-dependent timeout
         m_outTimer->setInterval(5000);
     }
-    else if(entity->timeout()=="0"){
-        m_outTimer->setInterval(60 * 1000);
+    else if(entity->timeout() == "0") { // never expire
+        expire = false;
     }
     else{
         m_outTimer->setInterval(entity->timeout().toUInt());
     }
 
+    //update other content
     updateContent();
-
     show();
 
-    m_outTimer->start();
+    //restart the timer
+    if(expire)
+        m_outTimer->start();
+
+    //TODO
+    //urgency and category are not handled yet
 }
 
+//void Bubble::setBasePosition(int x, int y, QRect rect)
+//{
+    //x -= Padding;
+    //y += Padding;
 
-void Bubble::setBasePosition(int x, int y, QRect rect)
-{
-    x -= Padding;
-    y += Padding;
+    //const QPoint dPos(x - BubbleWidth, y);
+    //const QSize dSize(BubbleWidth, BubbleHeight);
 
-    const QPoint dPos(x - BubbleWidth, y);
-    const QSize dSize(BubbleWidth, BubbleHeight);
+    //move(dPos);
+    //resize(dSize);
 
-    move(dPos);
-    resize(dSize);
+    //if (m_outAnimation->state() != QPropertyAnimation::Running) {
+        //const QRect normalGeo( dPos, dSize );
+        //QRect outGeo( normalGeo.right(), normalGeo.y(), 0, normalGeo.height());
 
-    if (m_outAnimation->state() != QPropertyAnimation::Running) {
-        const QRect normalGeo( dPos, dSize );
-        QRect outGeo( normalGeo.right(), normalGeo.y(), 0, normalGeo.height());
+        //m_outAnimation->setStartValue(normalGeo);
+        //m_outAnimation->setEndValue(outGeo);
+    //}
 
-        m_outAnimation->setStartValue(normalGeo);
-        m_outAnimation->setEndValue(outGeo);
-    }
-
-    if (!rect.isEmpty())
-        m_screenGeometry = rect;
-}
+    //if (!rect.isEmpty())
+        //m_screenGeometry = rect;
+//}
 
 void Bubble::compositeChanged()
 {
@@ -158,13 +166,17 @@ void Bubble::compositeChanged()
     }
 }
 
+//XXX
+//maybe use ReleaseEvent?
 void Bubble::mousePressEvent(QMouseEvent *)
 {
+    //if default action set,trigger it
     if (!m_defaultAction.isEmpty()) {
-        Q_EMIT actionInvoked(m_entity->id().toUInt(), m_defaultAction);
+        Q_EMIT actionInvoked(m_entity->id(), m_defaultAction);
         m_defaultAction.clear();
     } else {
-        Q_EMIT dismissed(m_entity->id().toInt());
+        //else,take it that the user want to dismiss this notification
+        Q_EMIT dismissed(m_entity->id());
     }
 
     m_outTimer->stop();
@@ -197,6 +209,8 @@ void Bubble::onActionButtonClicked(const QString &actionId)
         if (!args.isEmpty()) {
             QString cmd = args.first();
             args.removeFirst();
+            //IDEA
+            //only dde-related action allowed?
             if (i.key() == "x-deepin-action-" + actionId) {
                 QProcess::startDetached(cmd, args);
             }
@@ -205,7 +219,7 @@ void Bubble::onActionButtonClicked(const QString &actionId)
     }
 
     m_outTimer->stop();
-    Q_EMIT actionInvoked(m_entity->id().toUInt(), actionId);
+    Q_EMIT actionInvoked(m_entity->id(), actionId);
 }
 
 void Bubble::onOutTimerTimeout()
@@ -214,14 +228,15 @@ void Bubble::onOutTimerTimeout()
         m_outTimer->stop();
         m_outTimer->start();
     } else {
-        m_outAnimation->start();
+        //m_outAnimation->start();
+        Q_EMIT expired(m_entity->id());
     }
 }
 
-void Bubble::onOutAnimFinished()
-{
-    Q_EMIT expired(m_entity->id().toInt());
-}
+//void Bubble::onOutAnimFinished()
+//{
+//    Q_EMIT expired(m_entity->id());
+//}
 
 void Bubble::updateContent()
 {
@@ -234,13 +249,17 @@ void Bubble::updateContent()
 
 void Bubble::initUI()
 {
-    resize(BubbleWidth, BubbleHeight);
+    setFixedSize(QSize(BubbleWidth,BubbleHeight));
 
     m_icon->setFixedSize(48, 48);
     m_icon->move(11, 11);
 
     m_body->setObjectName("Body");
     m_body->move(70, 0);
+
+#ifdef QT_DEBUG
+    qDebug()<<this->radius();
+#endif
 
     m_actionButton->move(BubbleWidth - m_actionButton->width(), 0);
 
@@ -249,17 +268,19 @@ void Bubble::initUI()
     connect(m_actionButton, &ActionButton::buttonClicked, this, &Bubble::onActionButtonClicked);
 }
 
-void Bubble::initAnimations()
-{
-    m_outAnimation = new QPropertyAnimation(this, "geometry", this);
-    m_outAnimation->setDuration(300);
-    m_outAnimation->setEasingCurve(QEasingCurve::OutCubic);
+//void Bubble::initAnimations()
+//{
+//    m_outAnimation = new QPropertyAnimation(this, "width", this);
+//    m_outAnimation->setDuration(300);
+//    m_outAnimation->setEasingCurve(QEasingCurve::OutCubic);
+//    m_outAnimation->setStartValue(width());
+//    m_outAnimation->setEndValue(0);
 
-    connect(m_outAnimation, &QPropertyAnimation::finished, this, &Bubble::onOutAnimFinished);
+//    connect(m_outAnimation, &QPropertyAnimation::finished, this, &Bubble::onOutAnimFinished);
 
-    m_moveAnimation = new QPropertyAnimation(this, "pos", this);
-    m_moveAnimation->setEasingCurve(QEasingCurve::OutCubic);
-}
+//    //m_moveAnimation = new QPropertyAnimation(this, "pos", this);
+//    //m_moveAnimation->setEasingCurve(QEasingCurve::OutCubic);
+//}
 
 void Bubble::initTimers()
 {
@@ -306,20 +327,35 @@ void Bubble::processActions()
 
 void Bubble::processIconData()
 {
-    const QString imagePath = m_entity->hints().contains("image-path") ? m_entity->hints()["image-path"].toString() : "";
+    //  the order for icon checkup should be:
+    //  - "image-data"
+    //  - "image-path"
+    //  - app_icon parameter
+    //  - "icon_data"
 
-    if (imagePath.isEmpty()) {
-        if (m_entity->hints()["image-data"].canConvert<QDBusArgument>()){
-            QDBusArgument argument = m_entity->hints()["image-data"].value<QDBusArgument>();
-            m_icon->setPixmap(converToPixmap(argument));
-        } else if (m_entity->hints()["icon_data"].canConvert<QDBusArgument>()) {
-            QDBusArgument argument = m_entity->hints()["icon_data"].value<QDBusArgument>();
-            m_icon->setPixmap(converToPixmap(argument));
-        } else {
-            m_icon->setIcon(m_entity->appIcon());
+    if (m_entity->hints()["image-data"].canConvert<QDBusArgument>()) {
+        QDBusArgument argument = m_entity->hints()["image-data"].value<QDBusArgument>();
+        m_icon->setPixmap(converToPixmap(argument));
+    } 
+    else { 
+        const QString imagePath = m_entity->hints().contains("image-path") ? m_entity->hints()["image-path"].toString() : "";
+        if (imagePath.isEmpty()) {
+            //FIXME
+            //icon_data should be the last try
+            if (m_entity->hints()["icon_data"].canConvert<QDBusArgument>()) {
+                QDBusArgument argument = m_entity->hints()["icon_data"].value<QDBusArgument>();
+                m_icon->setPixmap(converToPixmap(argument));
+            } 
+            else {
+                //FIXME
+                //there should be nothing at all if no icon is provided by caller
+                //but currently this will use the default gnome icon
+                m_icon->setIcon(m_entity->appIcon());
+            }
+        } 
+        else {
+            m_icon->setIcon(imagePath);
         }
-    } else {
-        m_icon->setIcon(imagePath);
     }
 }
 
@@ -422,17 +458,17 @@ void Bubble::onDelayQuit()
     }
 }
 
-void Bubble::resetMoveAnim(const QRect &rect)
-{
-    if (isVisible() && m_outAnimation->state() != QPropertyAnimation::Running) {
-        const QPoint &endPoint = QPoint(rect.x() - Padding - BubbleWidth, y());
-        m_moveAnimation->setStartValue(QPoint(x(), y()));
-        m_moveAnimation->setEndValue(endPoint);
+//void Bubble::resetMoveAnim(const QRect &rect)
+//{
+    //if (isVisible() && m_outAnimation->state() != QPropertyAnimation::Running) {
+        //const QPoint &endPoint = QPoint(rect.x() - Padding - BubbleWidth, y());
+        //m_moveAnimation->setStartValue(QPoint(x(), y()));
+        //m_moveAnimation->setEndValue(endPoint);
 
-        const QRect &startRect = QRect(endPoint, QSize(BubbleWidth, BubbleHeight));
-        m_outAnimation->setStartValue(startRect);
-        m_outAnimation->setEndValue(QRect(startRect.right(), startRect.y(), 0, BubbleHeight));
+        //const QRect &startRect = QRect(endPoint, QSize(BubbleWidth, BubbleHeight));
+        //m_outAnimation->setStartValue(startRect);
+        //m_outAnimation->setEndValue(QRect(startRect.right(), startRect.y(), 0, BubbleHeight));
 
-        m_moveAnimation->start();
-    }
-}
+        //m_moveAnimation->start();
+    //}
+//}

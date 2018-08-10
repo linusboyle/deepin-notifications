@@ -33,6 +33,25 @@
 
 DWIDGET_USE_NAMESPACE
 
+static const int BubbleWidth = 300;
+static const int BubbleHeight = 70;
+
+static const QString ControlCenterDBusService = "com.deepin.dde.ControlCenter";
+static const QString ControlCenterDBusPath = "/com/deepin/dde/ControlCenter";
+static const QString DBusDockDBusServer = "com.deepin.dde.Dock";
+static const QString DBusDockDBusPath = "/com/deepin/dde/Dock";
+static const QString DBusDaemonDBusService = "org.freedesktop.DBus";
+static const QString DBusDaemonDBusPath = "/org/freedesktop/DBus";
+static const QString NotificationsDBusService = "org.freedesktop.Notifications";
+static const QString NotificationsDBusPath = "/org/freedesktop/Notifications";
+static const QString DDENotifyDBusServer = "com.deepin.dde.Notification";
+static const QString DDENotifyDBusPath = "/com/deepin/dde/Notification";
+static const QString Login1DBusService = "org.freedesktop.login1";
+static const QString Login1DBusPath = "/org/freedesktop/login1";
+static const QString DockDaemonDBusService = "com.deepin.dde.daemon.Dock";
+static const QString DockDaemonDBusPath = "/com/deepin/dde/daemon/Dock";
+static const int ControlCenterWidth = 400;
+
 class QLabel;
 class AppIcon;
 class QPropertyAnimation;
@@ -49,22 +68,38 @@ class Bubble : public DBlurEffectWidget
 {
     Q_OBJECT
 public:
-    Bubble(NotificationEntity *entity=0);
+    Bubble(NotificationEntity *entity = nullptr,QWidget* parent=nullptr);
 
-    NotificationEntity *entity() const;
-    void setBasePosition(int,int, QRect = QRect());
+    inline NotificationEntity *entity() const {
+        return m_entity;
+    }
+
+    // replace the content with provided entity
     void setEntity(NotificationEntity *entity);
 
 Q_SIGNALS:
-    void expired(int);
-    void dismissed(int);
-    void replacedByOther(int);
+    //notification closed for different reasons:
+    //handled by BubbleLayout
+    
+    //emitted when timer timeout etc.
+    void expired(uint);
+    //emitted when user click mouse without default action
+    void dismissed(uint);
+    //TODO
+    //not used yet
+    void replacedByOther(uint);
+    //emitted when user click mouse on bubble with default action
+    //or when the action button is clicked
     void actionInvoked(uint, QString);
 
 public Q_SLOTS:
+    // change ui style when compositor changed,dde only
     void compositeChanged();
+    // if autoquit is set,automatically quit the application
     void onDelayQuit();
-    void resetMoveAnim(const QRect &rect);
+
+    // update the animation,taking parameter rect as the screen bounding rect
+    //void resetMoveAnim(const QRect &rect);
 
 protected:
     void mousePressEvent(QMouseEvent *) Q_DECL_OVERRIDE;
@@ -74,38 +109,41 @@ protected:
 private Q_SLOTS:
     void onActionButtonClicked(const QString &actionId);
     void onOutTimerTimeout();
-    void onOutAnimFinished();
+    //void onOutAnimFinished();
 
 private:
     void initUI();
-    void initAnimations();
+    //void initAnimations();
     void initTimers();
+    
     void updateContent();
     void processActions();
     void processIconData();
-    bool containsMouse() const;
 
+    //helper function
+    bool containsMouse() const;
     void saveImg(const QImage &image);
     const QPixmap converToPixmap(const QDBusArgument &value);
 
 private:
     NotificationEntity *m_entity;
+    QString m_defaultAction;
 
+    // UI components
     AppIcon *m_icon = nullptr;
     AppBody *m_body = nullptr;
     ActionButton *m_actionButton = nullptr;
 
-    QPropertyAnimation *m_outAnimation = nullptr;
-    QPropertyAnimation *m_moveAnimation = nullptr;
+    //QPropertyAnimation *m_outAnimation = nullptr;
+    //QPropertyAnimation *m_moveAnimation = nullptr;
+
+    //Timer
     QTimer *m_outTimer = nullptr;
     QTimer *m_quitTimer;
+
+    //Helper
     DPlatformWindowHandle *m_handle;
     DWindowManagerHelper *m_wmHelper;
-
-    QRect m_screenGeometry;
-    QString m_defaultAction;
-
-    bool m_offScreen = true;
 };
 
 #endif // BUBBLE_H

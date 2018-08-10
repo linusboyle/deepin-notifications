@@ -30,7 +30,7 @@ class NotificationEntity : public QObject
 {
     Q_OBJECT
 public:
-    NotificationEntity(const QString &appName, const QString &id,
+    NotificationEntity(const QString &appName, uint id,
                        const QString &appIcon, const QString &summary,
                        const QString &body, const QStringList &actions,
                        const QVariantMap hints, const QString &ctime,
@@ -38,13 +38,14 @@ public:
                        QObject *parent=0);
 
     NotificationEntity(const NotificationEntity &notify);
-    NotificationEntity& operator=(const NotificationEntity &notify);
+    //notificationEntity& operator=(const NotificationEntity &notify);
+    ~NotificationEntity();
 
     QString appName() const;
     void setAppName(const QString &appName);
 
-    QString id() const;
-    void setId(const QString &id);
+    uint id() const;
+    void setId(uint id);
 
     QString appIcon() const;
     void setAppIcon(const QString &appIcon);
@@ -71,7 +72,7 @@ public:
 
 private:
     QString m_appName;
-    QString m_id;
+    uint m_id;
     QString m_appIcon;
     QString m_summary;
     QString m_body;

@@ -3,3 +3,6 @@
 *.test
 *.pro.user*
 build/*
+# for vim...
+*.swp
+*ycm*

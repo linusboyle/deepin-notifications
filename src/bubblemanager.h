@@ -23,40 +23,23 @@
 #ifndef BUBBLEMANAGER_H
 #define BUBBLEMANAGER_H
 
-#include <QObject>
 #include <QStringList>
 #include <QVariantMap>
-#include <QQueue>
 #include <QDesktopWidget>
 #include <QApplication>
 #include <QGuiApplication>
-#include "bubble.h"
 #include "dbusdock_interface.h"
 #include <com_deepin_dde_daemon_dock.h>
+#include "bubblescrollarea.h"
 
-using DockDaemonInter =  com::deepin::dde::daemon::Dock;
-
-static const QString ControlCenterDBusService = "com.deepin.dde.ControlCenter";
-static const QString ControlCenterDBusPath = "/com/deepin/dde/ControlCenter";
-static const QString DBbsDockDBusServer = "com.deepin.dde.Dock";
-static const QString DBusDockDBusPath = "/com/deepin/dde/Dock";
-static const QString DBusDaemonDBusService = "org.freedesktop.DBus";
-static const QString DBusDaemonDBusPath = "/org/freedesktop/DBus";
-static const QString NotificationsDBusService = "org.freedesktop.Notifications";
-static const QString NotificationsDBusPath = "/org/freedesktop/Notifications";
-static const QString DDENotifyDBusServer = "com.deepin.dde.Notification";
-static const QString DDENotifyDBusPath = "/com/deepin/dde/Notification";
-static const QString Login1DBusService = "org.freedesktop.login1";
-static const QString Login1DBusPath = "/org/freedesktop/login1";
-static const QString DockDaemonDBusServie = "com.deepin.dde.daemon.Dock";
-static const QString DockDaemonDBusPath = "/com/deepin/dde/daemon/Dock";
-static const int ControlCenterWidth = 400;
+using DockDaemonInterface =  com::deepin::dde::daemon::Dock;
 
 class DBusControlCenter;
 class DBusDaemonInterface;
 class Login1ManagerInterface;
 class DBusDockInterface;
 class Persistence;
+
 class BubbleManager : public QObject
 {
     Q_OBJECT
@@ -64,12 +47,19 @@ public:
     explicit BubbleManager(QObject *parent = 0);
     ~BubbleManager();
 
-    enum ClosedReason {
-        Expired = 1,
-        Dismissed = 2,
-        Closed = 3,
-        Unknown = 4
-    };
+    /*  Specification: 
+        1 - The notification expired.
+        2 - The notification was dismissed by the user.
+        3 - The notification was closed by a call to CloseNotification slot.
+        4 - Undefined/reserved reasons.
+    */
+
+    //enum ClosedReason {
+        //Expired = 1,
+        //Dismissed = 2,
+        //Closed = 3,
+        //Unknown = 4
+    //};
 
     enum DockPosition {
         Top = 0,
@@ -78,42 +68,64 @@ public:
         Left = 3
     };
 
-Q_SIGNALS:
-    // Standard Notifications dbus implementation
-    void ActionInvoked(uint, const QString &);
-    void NotificationClosed(uint, uint);
+signals:
+    /* 
+     * Standard Notifications dbus implementation
+     */
 
-    // Extra DBus APIs
+    //inform external caller user has chosen certain action
+    void ActionInvoked(uint id, const QString& key);
+
+    //inform external caller a notification is closed
+    void NotificationClosed(uint id, uint reason);
+
+    /* Extra DBus APIs
+     */
+
+    //inform a record of notification added
     void RecordAdded(const QString &);
 
-public Q_SLOTS:
-    // Standard Notifications dbus implementation
-    void CloseNotification(uint);
+    /* Internal Signal
+     */
+
+    //request the bubblelayout to create and add a bubble
+    void toAddNotification(NotificationEntity* entity);
+    //request the bubblelayout to delete the bubble associated with uid ID
+    void toCloseNotification(uint ID,uint reason);
+    
+public slots:
+
+    /* Standard Notifications dbus implementation
+     */
+
+    // Handle external request for closing notification
+    void CloseNotification(uint id);
+    // List supported features of this implementation
+    // TODO
+    // the features need updating
     QStringList GetCapabilities();
+    // Give server/daemon info about this implementation 
     QString GetServerInformation(QString &, QString &, QString &);
-    // new notify will be received by this slot
+    // Handle new notify request
     uint Notify(const QString &, uint replacesId, const QString &, const QString &, const QString &, const QStringList &, const QVariantMap, int);
 
-    // Extra DBus APIs
+    // Extra DBus APIs - Record Related
     QString GetAllRecords();
     QString GetRecordById(const QString &id);
     QString GetRecordsFromId(int rowCount, const QString &offsetId);
     void RemoveRecord(const QString &id);
     void ClearRecords();
 
-private Q_SLOTS:
+private slots:
     void onRecordAdded(NotificationEntity *entity);
+    void onBubbleActionTriggered(uint ID,const QString& key);
 
-    void onCCDestRectChanged(const QRect &destRect);
-    void onDockRectChanged(const QRect &geometry);
+    //void onCCDestRectChanged(const QRect &destRect);
+    //void onDockRectChanged(const QRect &geometry);
     void onDockPositionChanged(int position);
-    void onDbusNameOwnerChanged(QString, QString, QString);
-    void onPrepareForSleep(bool);
+    //void onDbusNameOwnerChanged(QString, QString, QString);
 
-    void bubbleExpired(int);
-    void bubbleDismissed(int);
-    void bubbleReplacedByOther(int);
-    void bubbleActionInvoked(uint, QString);
+    void onPrepareForSleep(bool);
 
 private:
     void registerAsService();
@@ -121,28 +133,27 @@ private:
     bool checkDockExistence();
     bool checkControlCenterExistence();
 
-    int getX();
-    int getY();
+    //int getX();
+    //int getY();
 
     // return geometry of the containing specified point screen,
     // and return true if primary-screen and specified-point-screen are the same screen,
     // or return false.
-    QPair<QRect, bool> screensInfo(const QPoint &point) const;
+    //QPair<QRect, bool> screensInfo(const QPoint &point) const;
 
-    void bindControlCenterX();
-    void consumeEntities();
+    //void bindControlCenterX();
 
 private:
-    Bubble *m_bubble;
+    BubbleScrollArea* m_area;
+
     Persistence *m_persistence;
+
+    //interfaces
     DBusControlCenter *m_dbusControlCenter;
     DBusDaemonInterface *m_dbusDaemonInterface;
     Login1ManagerInterface *m_login1ManagerInterface;
     DBusDockInterface *m_dbusdockinterface;
-    DockDaemonInter *m_dockDeamonInter;
-
-    QQueue<NotificationEntity*> m_entities;
-    QPointer<NotificationEntity> m_currentNotify;
+    DockDaemonInterface *m_dockDeamonInterface;
 
     QRect m_ccGeometry;
     QRect m_dockGeometry;
